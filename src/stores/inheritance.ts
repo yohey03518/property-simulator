@@ -283,10 +283,11 @@ export const useInheritanceStore = defineStore(
       if (!allocations.value[itemId]) {
         allocations.value[itemId] = {}
       }
-      if (ratioStr.trim() === '' || parseRatioStr(ratioStr).isZero()) {
+      const trimmed = ratioStr.trim()
+      if (trimmed === '') {
         delete allocations.value[itemId][heirId]
       } else {
-        allocations.value[itemId][heirId] = ratioStr.trim()
+        allocations.value[itemId][heirId] = ratioStr
       }
     }
 

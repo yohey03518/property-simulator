@@ -17,11 +17,7 @@ const getAllocationVal = (itemId: string, heirId: string) => {
   return store.allocations[itemId]?.[heirId] || ''
 }
 
-// 更新分配比例
-const handleAllocationChange = (itemId: string, heirId: string, event: Event) => {
-  const target = event.target as HTMLInputElement
-  store.updateAllocation(itemId, heirId, target.value)
-}
+
 </script>
 
 <template>
@@ -111,8 +107,8 @@ const handleAllocationChange = (itemId: string, heirId: string, event: Event) =>
                     <div class="flex items-center gap-1.5">
                       <span class="text-xs text-muted-foreground">分配:</span>
                       <Input 
-                        :value="getAllocationVal(cash.id, heir.id)"
-                        @input="handleAllocationChange(cash.id, heir.id, $event)"
+                        :model-value="getAllocationVal(cash.id, heir.id)"
+                        @update:model-value="val => store.updateAllocation(cash.id, heir.id, String(val))"
                         placeholder="如 1/3" 
                         class="h-7 text-xs w-20 text-center" 
                       />
@@ -194,8 +190,8 @@ const handleAllocationChange = (itemId: string, heirId: string, event: Event) =>
                     <div class="flex items-center gap-1.5">
                       <span class="text-xs text-muted-foreground">分配:</span>
                       <Input 
-                        :value="getAllocationVal(re.id, heir.id)"
-                        @input="handleAllocationChange(re.id, heir.id, $event)"
+                        :model-value="getAllocationVal(re.id, heir.id)"
+                        @update:model-value="val => store.updateAllocation(re.id, heir.id, String(val))"
                         placeholder="如 1/3" 
                         class="h-7 text-xs w-20 text-center" 
                       />
