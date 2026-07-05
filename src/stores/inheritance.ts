@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { parseRatioStr } from '../utils/fraction'
 import { add, sub, mul } from '../utils/math'
 import { Decimal } from 'decimal.js'
@@ -179,8 +179,11 @@ export const useInheritanceStore = defineStore(
       cashList.value.forEach((cash) => {
         const allocs = allocations.value[cash.id] || {}
         let totalAllocated = new Decimal(0)
-        Object.values(allocs).forEach((ratioStr) => {
-          totalAllocated = add(totalAllocated, parseRatioStr(ratioStr))
+        // 僅計算目前存在於繼承人名單（heirList）中的分配比例，避免已刪除繼承人的舊數據殘留影響計算
+        heirList.value.forEach((heir) => {
+          if (allocs[heir.id]) {
+            totalAllocated = add(totalAllocated, parseRatioStr(allocs[heir.id]))
+          }
         })
         status[cash.id] = {
           allocated: totalAllocated,
@@ -193,8 +196,11 @@ export const useInheritanceStore = defineStore(
       realEstateList.value.forEach((re) => {
         const allocs = allocations.value[re.id] || {}
         let totalAllocated = new Decimal(0)
-        Object.values(allocs).forEach((ratioStr) => {
-          totalAllocated = add(totalAllocated, parseRatioStr(ratioStr))
+        // 僅計算目前存在於繼承人名單（heirList）中的分配比例，避免已刪除繼承人的舊數據殘留影響計算
+        heirList.value.forEach((heir) => {
+          if (allocs[heir.id]) {
+            totalAllocated = add(totalAllocated, parseRatioStr(allocs[heir.id]))
+          }
         })
         status[re.id] = {
           allocated: totalAllocated,
@@ -205,6 +211,34 @@ export const useInheritanceStore = defineStore(
 
       return status
     })
+
+    // 監聽繼承人名單變化，自動清理已不存在的繼承人分配佔比 (防止 localStorage 中的舊數據造成幽靈分配)
+    watch(
+      heirList,
+      (newList) => {
+        const activeIds = new Set(newList.map((h) => h.id))
+        const newAllocations = { ...allocations.value }
+        let modified = false
+
+        Object.keys(newAllocations).forEach((itemId) => {
+          if (newAllocations[itemId]) {
+            const itemAlloc = { ...newAllocations[itemId] }
+            Object.keys(itemAlloc).forEach((heirId) => {
+              if (!activeIds.has(heirId)) {
+                delete itemAlloc[heirId]
+                modified = true
+              }
+            })
+            newAllocations[itemId] = itemAlloc
+          }
+        })
+
+        if (modified) {
+          allocations.value = newAllocations
+        }
+      },
+      { deep: true, immediate: true }
+    )
 
     // 繼承人計算面板數據
     const heirsResults = computed(() => {
@@ -280,13 +314,17 @@ export const useInheritanceStore = defineStore(
       })
     })
 
-    // 總未分配資產淨值 = 可分配總淨值 - Σ(所有繼承人實際淨值)
+    // 總未分配資產淨值 = 總淨資產價值（未扣除共同支出） - Σ(所有繼承人實際淨值)
+    // 註：這確保當所有實體資產與負債（現金與房產持份）已分配為 100% 時，
+    // 總未分配資產淨值為 0。共同支出已於各繼承人的 expectedNetValue 及差額（多退少補）中處理，
+    // 不應在此處重複扣除而導致資產分配完畢時卻錯誤顯示為「分配超出總淨額」。
     const totalUndistributedNetValue = computed(() => {
+      const totalNetAssets = sub(totalAssets.value, totalLiabilities.value)
       const sumActualNet = heirsResults.value.reduce(
         (sum, h) => add(sum, h.actualNetValue),
         new Decimal(0)
       )
-      return sub(netDistributableValue.value, sumActualNet)
+      return sub(totalNetAssets, sumActualNet)
     })
 
     // --- 方法 (Actions) ---

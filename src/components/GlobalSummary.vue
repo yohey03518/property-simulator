@@ -54,7 +54,7 @@ const undistributedState = computed(() => {
             分配防呆狀態提示
           </h3>
           <p class="text-xs opacity-90 mt-0.5" :class="undistributedState.textColor">
-            可分配總淨值需與各繼承人實際分得淨值總和相符。
+            實體資產與負債需完全分配。共同費用已納入預期淨值，並透過多退少補差額結算。
           </p>
         </div>
       </div>
