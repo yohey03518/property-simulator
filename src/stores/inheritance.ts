@@ -185,6 +185,10 @@ export const useInheritanceStore = defineStore(
             totalAllocated = add(totalAllocated, parseRatioStr(allocs[heir.id]))
           }
         })
+        // 精度修正：若接近 1，視為 1 (解決 1/3 累加不等於 1 的問題)
+        if (sub(1, totalAllocated).abs().lt(0.0001)) {
+          totalAllocated = new Decimal(1)
+        }
         status[cash.id] = {
           allocated: totalAllocated,
           remaining: sub(1, totalAllocated),
@@ -202,6 +206,10 @@ export const useInheritanceStore = defineStore(
             totalAllocated = add(totalAllocated, parseRatioStr(allocs[heir.id]))
           }
         })
+        // 精度修正：若接近 1，視為 1 (解決 1/3 累加不等於 1 的問題)
+        if (sub(1, totalAllocated).abs().lt(0.0001)) {
+          totalAllocated = new Decimal(1)
+        }
         status[re.id] = {
           allocated: totalAllocated,
           remaining: sub(1, totalAllocated),
@@ -297,7 +305,9 @@ export const useInheritanceStore = defineStore(
         const expenseAdjustment = heirExpenseAdjustments.value[heir.id] || new Decimal(0)
 
         // 分配差額 = 實際淨值 + 費用補償調整 - 預期淨值
-        const difference = sub(add(actualNetValue, expenseAdjustment), expectedNetValue)
+        const diff = sub(add(actualNetValue, expenseAdjustment), expectedNetValue)
+        // 精度修正：若絕對值小於 0.01，視為 0（避免 1/3 等無限循環比例產生微差導致差額顯示為非零值）
+        const difference = diff.abs().lt(0.01) ? new Decimal(0) : diff
 
         return {
           ...heir,

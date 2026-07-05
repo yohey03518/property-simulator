@@ -33,6 +33,9 @@ describe('GlobalSummary.vue', () => {
     const wrapper = mount(GlobalSummary)
 
     expect(wrapper.text()).toContain('已完全分配完畢')
+    // Verify that the banner is green (emerald background)
+    const banner = wrapper.find('.rounded-lg')
+    expect(banner.classes()).toContain('bg-emerald-50')
   })
 
   it('shows under-allocated state when totalUndistributedNetValue is positive', () => {
@@ -46,6 +49,9 @@ describe('GlobalSummary.vue', () => {
 
     expect(wrapper.text()).toContain('尚有資產未指派')
     expect(wrapper.text()).toMatch(/(NT)?\$43,000,000/) // 53M - 10M
+    // Verify that the banner is amber
+    const banner = wrapper.find('.rounded-lg')
+    expect(banner.classes()).toContain('bg-amber-50')
   })
 
   it('shows over-allocated state when totalUndistributedNetValue is negative', () => {
@@ -58,5 +64,21 @@ describe('GlobalSummary.vue', () => {
     const wrapper = mount(GlobalSummary)
 
     expect(wrapper.text()).toContain('分配超出總淨額')
+    // Verify that the banner is rose/red
+    const banner = wrapper.find('.rounded-lg')
+    expect(banner.classes()).toContain('bg-rose-50')
+  })
+
+  it('correctly handles float precision issues without showing warnings', () => {
+    const store = useInheritanceStore()
+    store.resetToDefault()
+
+    // The default setup distributes assets fully using '1/3' which has precision residual of around -1e-15 TWD.
+    // Verify totalUndistributedNetValue is exactly 0 and it shows balanced.
+    expect(store.totalUndistributedNetValue.isZero()).toBe(true)
+
+    const wrapper = mount(GlobalSummary)
+    expect(wrapper.text()).toContain('已完全分配完畢')
+    expect(wrapper.text()).not.toContain('分配超出總淨額')
   })
 })
