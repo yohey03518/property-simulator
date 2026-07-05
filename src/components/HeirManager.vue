@@ -24,7 +24,7 @@ const handleEditHeirClick = (item: any) => {
 }
 
 const saveHeir = () => {
-  if (!heirForm.value.name.trim() || !heirForm.value.targetShareStr.trim()) return
+  if (!heirForm.value.name.trim() || !heirForm.value.targetShareStr.trim() || getParsedValue(heirForm.value.targetShareStr) === null) return
   if (heirForm.value.editMode) {
     store.editHeir(heirForm.value.id, heirForm.value.name.trim(), heirForm.value.targetShareStr.trim())
   } else {
@@ -47,7 +47,7 @@ const getParsedValue = (str: string) => {
   }
 
   try {
-    const val = parseRatioStr(str)
+    const val = parseRatioStr(noSpaces)
     if (val.isNaN() || val.isNegative()) return null
     return val
   } catch {
@@ -99,7 +99,7 @@ const getParsedValue = (str: string) => {
           <Button size="sm" variant="ghost" class="h-8 text-xs" @click="resetHeirForm">
             <X class="h-4 w-4 mr-1" /> 取消
           </Button>
-          <Button size="sm" class="h-8 text-xs" @click="saveHeir" :disabled="!heirForm.name.trim() || !heirForm.targetShareStr.trim()">
+          <Button size="sm" class="h-8 text-xs" @click="saveHeir" :disabled="!heirForm.name.trim() || !heirForm.targetShareStr.trim() || getParsedValue(heirForm.targetShareStr) === null">
             <Check class="h-4 w-4 mr-1" /> 儲存
           </Button>
         </div>

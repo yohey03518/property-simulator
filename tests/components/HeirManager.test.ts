@@ -165,6 +165,14 @@ describe('HeirManager.vue', () => {
     await saveBtn!.trigger('click')
     expect(store.heirList.length).toBe(initialHeirCount)
 
+    // Case 2.5: Non-empty name, malformed ratio (like "abc")
+    await nameInput.setValue('五子 小豪')
+    await ratioInput.setValue('abc')
+    expect(saveBtn!.element.hasAttribute('disabled')).toBe(true)
+
+    await saveBtn!.trigger('click')
+    expect(store.heirList.length).toBe(initialHeirCount)
+
     // Case 3: Empty name, empty ratio
     await nameInput.setValue('')
     await ratioInput.setValue('')
@@ -210,5 +218,14 @@ describe('HeirManager.vue', () => {
     const originalMingAfterRatioClear = store.heirList.find(h => h.id === 'heir_1')
     expect(originalMingAfterRatioClear).toBeDefined()
     expect(originalMingAfterRatioClear!.targetShareStr).toBe('1/3')
+
+    // Malformed ratio (like "abc") during edit
+    await editRatioInput.setValue('abc')
+    expect(editSaveBtn!.element.hasAttribute('disabled')).toBe(true)
+    await editSaveBtn!.trigger('click')
+    // Verify store has NOT changed
+    const originalMingAfterRatioMalformed = store.heirList.find(h => h.id === 'heir_1')
+    expect(originalMingAfterRatioMalformed).toBeDefined()
+    expect(originalMingAfterRatioMalformed!.targetShareStr).toBe('1/3')
   })
 })
