@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useInheritanceStore } from '../../src/stores/inheritance'
 import AssetManager from '../../src/components/AssetManager.vue'
 import { Select } from '../../src/components/ui/select'
+import { Edit2, Trash2 } from 'lucide-vue-next'
 
 describe('AssetManager.vue', () => {
   beforeEach(() => {
@@ -11,9 +12,6 @@ describe('AssetManager.vue', () => {
   })
 
   it('renders the lists of assets and expenses correctly', () => {
-    const store = useInheritanceStore()
-    store.resetToDefault()
-
     const wrapper = mount(AssetManager)
 
     expect(wrapper.text()).toContain('銀行存款 - 活期台幣')
@@ -24,8 +22,6 @@ describe('AssetManager.vue', () => {
   // --- 現金與動產測試 ---
   it('adds a cash asset correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
-
     const wrapper = mount(AssetManager)
 
     const cards = wrapper.findAll('[data-slot="card"]')
@@ -49,24 +45,22 @@ describe('AssetManager.vue', () => {
     expect(saveBtn).toBeDefined()
     await saveBtn!.trigger('click')
 
-    // Verify item was added to store
-    expect(store.cashList.some(c => c.name === '美金定存' && c.amount === 1200000)).toBe(true)
+    // Verify item was added to store using find
+    expect(store.cashList.find(c => c.name === '美金定存' && c.amount === 1200000)).toBeDefined()
   })
 
   it('edits a cash asset correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
-
     const wrapper = mount(AssetManager)
 
     const cards = wrapper.findAll('[data-slot="card"]')
     const cashCard = cards.find(card => card.text().includes('現金與動產清單'))
     expect(cashCard).toBeDefined()
 
-    // Find first cash card edit button
-    const editBtn = cashCard!.find('button[class*="hover:text-primary"]')
-    expect(editBtn.exists()).toBe(true)
-    await editBtn.trigger('click')
+    // Find first cash card edit button using Edit2 component
+    const editIcon = cashCard!.findComponent(Edit2)
+    expect(editIcon.exists()).toBe(true)
+    await editIcon.trigger('click')
 
     const inputs = cashCard!.findAll('input')
     await inputs[0].setValue('修改後的現金')
@@ -82,7 +76,6 @@ describe('AssetManager.vue', () => {
 
   it('deletes a cash asset correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
     const initialLength = store.cashList.length
 
     const wrapper = mount(AssetManager)
@@ -91,10 +84,10 @@ describe('AssetManager.vue', () => {
     const cashCard = cards.find(card => card.text().includes('現金與動產清單'))
     expect(cashCard).toBeDefined()
 
-    // Find delete button (hover:text-destructive)
-    const deleteBtn = cashCard!.find('button[class*="hover:text-destructive"]')
-    expect(deleteBtn.exists()).toBe(true)
-    await deleteBtn.trigger('click')
+    // Find delete button using Trash2 component
+    const deleteIcon = cashCard!.findComponent(Trash2)
+    expect(deleteIcon.exists()).toBe(true)
+    await deleteIcon.trigger('click')
 
     expect(store.cashList.length).toBe(initialLength - 1)
   })
@@ -102,8 +95,6 @@ describe('AssetManager.vue', () => {
   // --- 房產與不動產測試 ---
   it('adds a real estate asset correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
-
     const wrapper = mount(AssetManager)
 
     const cards = wrapper.findAll('[data-slot="card"]')
@@ -137,18 +128,16 @@ describe('AssetManager.vue', () => {
 
   it('edits a real estate asset correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
-
     const wrapper = mount(AssetManager)
 
     const cards = wrapper.findAll('[data-slot="card"]')
     const reCard = cards.find(card => card.text().includes('房產與不動產清單'))
     expect(reCard).toBeDefined()
 
-    // Find first real estate card edit button
-    const editBtn = reCard!.find('button[class*="hover:text-primary"]')
-    expect(editBtn.exists()).toBe(true)
-    await editBtn.trigger('click')
+    // Find first real estate card edit button using Edit2 component
+    const editIcon = reCard!.findComponent(Edit2)
+    expect(editIcon.exists()).toBe(true)
+    await editIcon.trigger('click')
 
     const inputs = reCard!.findAll('input')
     await inputs[0].setValue('修改後的房產')
@@ -168,7 +157,6 @@ describe('AssetManager.vue', () => {
 
   it('deletes a real estate asset correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
     const initialLength = store.realEstateList.length
 
     const wrapper = mount(AssetManager)
@@ -177,10 +165,10 @@ describe('AssetManager.vue', () => {
     const reCard = cards.find(card => card.text().includes('房產與不動產清單'))
     expect(reCard).toBeDefined()
 
-    // Find delete button
-    const deleteBtn = reCard!.find('button[class*="hover:text-destructive"]')
-    expect(deleteBtn.exists()).toBe(true)
-    await deleteBtn.trigger('click')
+    // Find delete button using Trash2 component
+    const deleteIcon = reCard!.findComponent(Trash2)
+    expect(deleteIcon.exists()).toBe(true)
+    await deleteIcon.trigger('click')
 
     expect(store.realEstateList.length).toBe(initialLength - 1)
   })
@@ -188,8 +176,6 @@ describe('AssetManager.vue', () => {
   // --- 共同支出與稅費測試 ---
   it('adds a common expense correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
-
     const wrapper = mount(AssetManager)
 
     const cards = wrapper.findAll('[data-slot="card"]')
@@ -220,8 +206,6 @@ describe('AssetManager.vue', () => {
 
   it('adds a common expense with a pre-paid heir correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
-
     const wrapper = mount(AssetManager)
 
     const cards = wrapper.findAll('[data-slot="card"]')
@@ -257,18 +241,16 @@ describe('AssetManager.vue', () => {
 
   it('edits a common expense correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
-
     const wrapper = mount(AssetManager)
 
     const cards = wrapper.findAll('[data-slot="card"]')
     const expCard = cards.find(card => card.text().includes('共同支出與稅費'))
     expect(expCard).toBeDefined()
 
-    // Find first expense card edit button
-    const editBtn = expCard!.find('button[class*="hover:text-primary"]')
-    expect(editBtn.exists()).toBe(true)
-    await editBtn.trigger('click')
+    // Find first expense card edit button using Edit2 component
+    const editIcon = expCard!.findComponent(Edit2)
+    expect(editIcon.exists()).toBe(true)
+    await editIcon.trigger('click')
 
     const inputs = expCard!.findAll('input')
     await inputs[0].setValue('修改後的支出')
@@ -290,18 +272,16 @@ describe('AssetManager.vue', () => {
 
   it('maps the sentinel value "__none__" for pre-paid heir to undefined in store', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
-
     const wrapper = mount(AssetManager)
 
     const cards = wrapper.findAll('[data-slot="card"]')
     const expCard = cards.find(card => card.text().includes('共同支出與稅費'))
     expect(expCard).toBeDefined()
 
-    // Find first expense card edit button (which initially has paidByHeirId: 'heir_1')
-    const editBtn = expCard!.find('button[class*="hover:text-primary"]')
-    expect(editBtn.exists()).toBe(true)
-    await editBtn.trigger('click')
+    // Find first expense card edit button using Edit2 component
+    const editIcon = expCard!.findComponent(Edit2)
+    expect(editIcon.exists()).toBe(true)
+    await editIcon.trigger('click')
 
     // Verify it initially has heir_1
     expect(store.commonExpenseList[0].paidByHeirId).toBe('heir_1')
@@ -321,7 +301,6 @@ describe('AssetManager.vue', () => {
 
   it('deletes a common expense correctly', async () => {
     const store = useInheritanceStore()
-    store.resetToDefault()
     const initialLength = store.commonExpenseList.length
 
     const wrapper = mount(AssetManager)
@@ -330,11 +309,118 @@ describe('AssetManager.vue', () => {
     const expCard = cards.find(card => card.text().includes('共同支出與稅費'))
     expect(expCard).toBeDefined()
 
-    // Find delete button
-    const deleteBtn = expCard!.find('button[class*="hover:text-destructive"]')
-    expect(deleteBtn.exists()).toBe(true)
-    await deleteBtn.trigger('click')
+    // Find delete button using Trash2 component
+    const deleteIcon = expCard!.findComponent(Trash2)
+    expect(deleteIcon.exists()).toBe(true)
+    await deleteIcon.trigger('click')
 
     expect(store.commonExpenseList.length).toBe(initialLength - 1)
+  })
+
+  // --- 表單驗證測試 ---
+  describe('Form Validation Guards', () => {
+    it('disables save button and rejects save for cash when name is empty or amount is negative', async () => {
+      const store = useInheritanceStore()
+      const initialLength = store.cashList.length
+      const wrapper = mount(AssetManager)
+      const cards = wrapper.findAll('[data-slot="card"]')
+      const cashCard = cards.find(card => card.text().includes('現金與動產清單'))!
+
+      // Open add form
+      const addBtn = cashCard.findAll('button').find(b => b.text().includes('新增現金'))!
+      await addBtn.trigger('click')
+
+      const inputs = cashCard.findAll('input')
+      const saveBtn = cashCard.findAll('button').find(b => b.text().includes('儲存'))!
+
+      // Case 1: Empty name
+      await inputs[0].setValue('')
+      await inputs[1].setValue(100)
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+      // Directly trigger save click to verify guard clause
+      await saveBtn.trigger('click')
+      expect(store.cashList.length).toBe(initialLength)
+
+      // Case 2: Negative amount
+      await inputs[0].setValue('有效名稱')
+      await inputs[1].setValue(-50)
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+      await saveBtn.trigger('click')
+      expect(store.cashList.length).toBe(initialLength)
+    })
+
+    it('disables save button and rejects save for real estate when fields are invalid', async () => {
+      const store = useInheritanceStore()
+      const initialLength = store.realEstateList.length
+      const wrapper = mount(AssetManager)
+      const cards = wrapper.findAll('[data-slot="card"]')
+      const reCard = cards.find(card => card.text().includes('房產與不動產清單'))!
+
+      // Open add form
+      const addBtn = reCard.findAll('button').find(b => b.text().includes('新增房產'))!
+      await addBtn.trigger('click')
+
+      const inputs = reCard.findAll('input')
+      const saveBtn = reCard.findAll('button').find(b => b.text().includes('儲存'))!
+
+      // Case 1: Empty name
+      await inputs[0].setValue('')
+      await inputs[1].setValue(1000)
+      await inputs[2].setValue(200)
+      await inputs[3].setValue(2.0)
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+      await saveBtn.trigger('click')
+      expect(store.realEstateList.length).toBe(initialLength)
+
+      // Case 2: Negative value
+      await inputs[0].setValue('有效房產')
+      await inputs[1].setValue(-1000)
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+      await saveBtn.trigger('click')
+      expect(store.realEstateList.length).toBe(initialLength)
+
+      // Case 3: Negative mortgage
+      await inputs[1].setValue(1000)
+      await inputs[2].setValue(-200)
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+      await saveBtn.trigger('click')
+      expect(store.realEstateList.length).toBe(initialLength)
+
+      // Case 4: Negative interest rate
+      await inputs[2].setValue(200)
+      await inputs[3].setValue(-1.5)
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+      await saveBtn.trigger('click')
+      expect(store.realEstateList.length).toBe(initialLength)
+    })
+
+    it('disables save button and rejects save for common expense when fields are invalid', async () => {
+      const store = useInheritanceStore()
+      const initialLength = store.commonExpenseList.length
+      const wrapper = mount(AssetManager)
+      const cards = wrapper.findAll('[data-slot="card"]')
+      const expCard = cards.find(card => card.text().includes('共同支出與稅費'))!
+
+      // Open add form
+      const addBtn = expCard.findAll('button').find(b => b.text().includes('新增支出'))!
+      await addBtn.trigger('click')
+
+      const inputs = expCard.findAll('input')
+      const saveBtn = expCard.findAll('button').find(b => b.text().includes('儲存'))!
+
+      // Case 1: Empty name
+      await inputs[0].setValue('')
+      await inputs[1].setValue(500)
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+      await saveBtn.trigger('click')
+      expect(store.commonExpenseList.length).toBe(initialLength)
+
+      // Case 2: Negative amount
+      await inputs[0].setValue('有效支出')
+      await inputs[1].setValue(-100)
+      expect(saveBtn.attributes('disabled')).toBeDefined()
+      await saveBtn.trigger('click')
+      expect(store.commonExpenseList.length).toBe(initialLength)
+    })
   })
 })
