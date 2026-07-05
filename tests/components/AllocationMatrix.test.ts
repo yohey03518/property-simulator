@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, DOMWrapper } from '@vue/test-utils'
+import type { VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useInheritanceStore } from '../../src/stores/inheritance'
 import AllocationMatrix from '../../src/components/AllocationMatrix.vue'
@@ -10,10 +11,17 @@ describe('AllocationMatrix.vue', () => {
   })
 
   // Helper function to find input for a specific heir in a decoupled way
-  const findInputForHeir = (parentWrapper: any, heirName: string) => {
-    const divs = parentWrapper.findAll('div')
-    const row = divs.find((el: any) => el.text().includes(heirName) && el.find('input').exists())
-    return row ? row.find('input') : undefined
+  const findInputForHeir = (
+    parentWrapper: VueWrapper<any> | DOMWrapper<Element>,
+    heirName: string
+  ): DOMWrapper<HTMLInputElement> | undefined => {
+    const spans = parentWrapper.findAll('span')
+    const span = spans.find((s) => s.text().trim() === heirName)
+    if (!span) return undefined
+    const parentRow = span.element.parentElement
+    if (!parentRow) return undefined
+    const inputEl = parentRow.querySelector('input')
+    return inputEl ? new DOMWrapper<HTMLInputElement>(inputEl) : undefined
   }
 
   it('shows placeholder if there are no assets', () => {
@@ -62,13 +70,27 @@ describe('AllocationMatrix.vue', () => {
     expect(meiInput).toBeDefined()
     expect(meiInput!.element.value).toBe('1/3')
 
-    // Check re_1 progress badge
+    // Find and check real estate card re_1
     const re1Card = cards.find(c => {
       const h4 = c.find('h4')
       return h4.exists() && h4.text().includes('台北大安區電梯大樓')
     })
     expect(re1Card).toBeDefined()
     expect(re1Card!.text()).toContain('已分完')
+    expect(re1Card!.text()).toMatch(/(NT)?\$30,000,000/)
+    expect(re1Card!.text()).toMatch(/(NT)?\$8,000,000/)
+
+    // Verify inputs for heirs exist under re_1
+    const mingReInput = findInputForHeir(re1Card!, '長子 小明')
+    const huaReInput = findInputForHeir(re1Card!, '次子 小華')
+    const meiReInput = findInputForHeir(re1Card!, '長女 小美')
+
+    expect(mingReInput).toBeDefined()
+    expect(mingReInput!.element.value).toBe('1/2')
+    expect(huaReInput).toBeDefined()
+    expect(huaReInput!.element.value).toBe('')
+    expect(meiReInput).toBeDefined()
+    expect(meiReInput!.element.value).toBe('1/2')
   })
 
   it('updates allocation string in store on input change', async () => {
@@ -104,11 +126,10 @@ describe('AllocationMatrix.vue', () => {
     })
     expect(cash1Card).toBeDefined()
 
-    const infoText = cash1Card!.findAll('span').find(s => s.text().includes('已指派：'))
-    expect(infoText).toBeDefined()
-    const progressBar = infoText!.element.parentElement?.parentElement?.querySelector('div[style]')
-    expect(progressBar).not.toBeNull()
-    expect(progressBar!.getAttribute('style')).toContain('width: 25%')
+    const progressBar = cash1Card!.find('.h-1\\.5 div')
+    expect(progressBar.exists()).toBe(true)
+    expect(progressBar.attributes('style')).toContain('width: 25%')
+    expect(progressBar.classes()).toContain('bg-emerald-500')
   })
 
   it('renders correct allocation progress badge and progress bar for over-allocated ratio', () => {
@@ -125,11 +146,10 @@ describe('AllocationMatrix.vue', () => {
     })
     expect(cash1Card).toBeDefined()
 
-    const infoText = cash1Card!.findAll('span').find(s => s.text().includes('已指派：'))
-    expect(infoText).toBeDefined()
-    const progressBar = infoText!.element.parentElement?.parentElement?.querySelector('div[style]')
-    expect(progressBar).not.toBeNull()
-    expect(progressBar!.getAttribute('style')).toContain('width: 100%')
+    const progressBar = cash1Card!.find('.h-1\\.5 div')
+    expect(progressBar.exists()).toBe(true)
+    expect(progressBar.attributes('style')).toContain('width: 100%')
+    expect(progressBar.classes()).toContain('bg-rose-500')
   })
 
   it('renders correct allocation progress badge and progress bar for unallocated ratio', () => {
@@ -146,10 +166,9 @@ describe('AllocationMatrix.vue', () => {
     })
     expect(cash1Card).toBeDefined()
 
-    const infoText = cash1Card!.findAll('span').find(s => s.text().includes('已指派：'))
-    expect(infoText).toBeDefined()
-    const progressBar = infoText!.element.parentElement?.parentElement?.querySelector('div[style]')
-    expect(progressBar).not.toBeNull()
-    expect(progressBar!.getAttribute('style')).toContain('width: 0%')
+    const progressBar = cash1Card!.find('.h-1\\.5 div')
+    expect(progressBar.exists()).toBe(true)
+    expect(progressBar.attributes('style')).toContain('width: 0%')
+    expect(progressBar.classes()).toContain('bg-emerald-500')
   })
 })
