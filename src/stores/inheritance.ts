@@ -324,7 +324,9 @@ export const useInheritanceStore = defineStore(
         (sum, h) => add(sum, h.actualNetValue),
         new Decimal(0)
       )
-      return sub(totalNetAssets, sumActualNet)
+      const diff = sub(totalNetAssets, sumActualNet)
+      // 若絕對值小於 0.01，視為 0（解決 1/3 等無限循環比例產生的精度微差）
+      return diff.abs().lt(0.01) ? new Decimal(0) : diff
     })
 
     // --- 方法 (Actions) ---
