@@ -288,6 +288,37 @@ describe('AssetManager.vue', () => {
     expect(store.commonExpenseList[0].paidByHeirId).toBe('heir_3')
   })
 
+  it('maps the sentinel value "__none__" for pre-paid heir to undefined in store', async () => {
+    const store = useInheritanceStore()
+    store.resetToDefault()
+
+    const wrapper = mount(AssetManager)
+
+    const cards = wrapper.findAll('[data-slot="card"]')
+    const expCard = cards.find(card => card.text().includes('共同支出與稅費'))
+    expect(expCard).toBeDefined()
+
+    // Find first expense card edit button (which initially has paidByHeirId: 'heir_1')
+    const editBtn = expCard!.find('button[class*="hover:text-primary"]')
+    expect(editBtn.exists()).toBe(true)
+    await editBtn.trigger('click')
+
+    // Verify it initially has heir_1
+    expect(store.commonExpenseList[0].paidByHeirId).toBe('heir_1')
+
+    // Change to '__none__'
+    const select = expCard!.findComponent(Select)
+    expect(select.exists()).toBe(true)
+    await select.vm.$emit('update:modelValue', '__none__')
+
+    const saveBtn = expCard!.findAll('button').find(b => b.text().includes('儲存'))
+    expect(saveBtn).toBeDefined()
+    await saveBtn!.trigger('click')
+
+    // Verify it was updated to undefined
+    expect(store.commonExpenseList[0].paidByHeirId).toBeUndefined()
+  })
+
   it('deletes a common expense correctly', async () => {
     const store = useInheritanceStore()
     store.resetToDefault()
