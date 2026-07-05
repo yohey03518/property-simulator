@@ -61,24 +61,28 @@ const saveRealEstate = () => {
 }
 
 // --- 共同支出操作 ---
-const resetExpForm = () => {
-  expForm.value = { id: '', name: '', amount: 0, paidByHeirId: '', show: false, editMode: false }
-}
+// reka-ui 的 Select 不接受空字串，用 '__none__' 代替「未指定預付者」選項
+const NONE_PAYER = '__none__'
+
 const handleAddExpClick = () => {
-  expForm.value = { id: '', name: '', amount: 0, paidByHeirId: '', show: true, editMode: false }
+  expForm.value = { id: '', name: '', amount: 0, paidByHeirId: NONE_PAYER, show: true, editMode: false }
 }
 const handleEditExpClick = (item: any) => {
-  expForm.value = { id: item.id, name: item.name, amount: item.amount, paidByHeirId: item.paidByHeirId || '', show: true, editMode: true }
+  expForm.value = { id: item.id, name: item.name, amount: item.amount, paidByHeirId: item.paidByHeirId || NONE_PAYER, show: true, editMode: true }
+}
+const cancelExpForm = () => {
+  expForm.value = { id: '', name: '', amount: 0, paidByHeirId: NONE_PAYER, show: false, editMode: false }
 }
 const saveExpense = () => {
   if (!expForm.value.name.trim() || expForm.value.amount < 0) return
-  const paidById = expForm.value.paidByHeirId || undefined
+  // sentinel '__none__' 轉回 undefined（表示共同從總淨值扣除）
+  const paidById = expForm.value.paidByHeirId === NONE_PAYER ? undefined : expForm.value.paidByHeirId
   if (expForm.value.editMode) {
     store.editCommonExpense(expForm.value.id, expForm.value.name.trim(), expForm.value.amount, paidById)
   } else {
     store.addCommonExpense(expForm.value.name.trim(), expForm.value.amount, paidById)
   }
-  resetExpForm()
+  cancelExpForm()
 }
 </script>
 
@@ -262,7 +266,7 @@ const saveExpense = () => {
                 <SelectValue placeholder="未指定（共同從總淨值扣除）" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value=""><span class="text-muted-foreground">未指定（共同按份從總淨值扣除）</span></SelectItem>
+                <SelectItem value="__none__"><span class="text-muted-foreground">未指定（共同按份從總淨值扣除）</span></SelectItem>
                 <SelectItem v-for="heir in store.heirList" :key="heir.id" :value="heir.id">
                   {{ heir.name }}
                 </SelectItem>
@@ -270,7 +274,7 @@ const saveExpense = () => {
             </Select>
           </div>
           <div class="flex justify-end gap-2">
-            <Button size="sm" variant="ghost" class="h-8 text-xs" @click="resetExpForm">
+            <Button size="sm" variant="ghost" class="h-8 text-xs" @click="cancelExpForm">
               <X class="h-4 w-4 mr-1" /> 取消
             </Button>
             <Button size="sm" class="h-8 text-xs" @click="saveExpense" :disabled="!expForm.name.trim() || expForm.amount < 0">

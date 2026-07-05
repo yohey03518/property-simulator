@@ -121,25 +121,27 @@ const formatMonthlyPayment = (val: any) => {
                 </div>
                 <div class="flex-shrink-0 text-right">
                   <div class="text-slate-600 dark:text-slate-400">自擔份額：{{ formatCurrency(detail.amount) }}</div>
+                  <!-- 預付者：顯示可向其他人收回的金額（其他人的份額合計）-->
                   <div
-                    v-if="!detail.adjustment.isZero()"
-                    class="font-semibold"
-                    :class="detail.adjustment.gt(0) ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+                    v-if="detail.isPayer && !detail.adjustment.isZero()"
+                    class="font-semibold text-emerald-600 dark:text-emerald-400"
                   >
-                    {{ detail.adjustment.gt(0) ? '＋可收回：' : '－需補付：' }}{{ formatCurrency(detail.adjustment.abs()) }}
+                    ＋可收回：{{ formatCurrency(detail.adjustment.abs()) }}
+                  </div>
+                  <!-- 非預付者：顯示應補付給預付者的金額（由最終清算差額自動結算）-->
+                  <div
+                    v-else-if="!detail.isPayer && !detail.adjustment.isZero()"
+                    class="font-semibold text-rose-600 dark:text-rose-400"
+                  >
+                    －需補付：{{ formatCurrency(detail.adjustment.abs()) }}
                   </div>
                 </div>
               </div>
             </div>
-            <!-- 補償差額小計 -->
+            <!-- 預付者：已從口袋先付出全額，使其差額下調，最終從清算收回 -->
             <div v-if="!heir.expenseAdjustment.isZero()" class="flex justify-end">
-              <span
-                class="text-xs font-bold px-2 py-0.5 rounded"
-                :class="heir.expenseAdjustment.gt(0)
-                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
-                  : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400'"
-              >
-                {{ heir.expenseAdjustment.gt(0) ? '共同費用補償小計：＋' : '共同費用應付小計：－' }}{{ formatCurrency(heir.expenseAdjustment.abs()) }}
+              <span class="text-xs font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400">
+                已預付全額，差額調整：－{{ formatCurrency(heir.expenseAdjustment.abs()) }}
               </span>
             </div>
           </div>

@@ -97,13 +97,22 @@ export const useInheritanceStore = defineStore(
       return sub(sub(totalAssets.value, totalLiabilities.value), totalCommonExpenses.value)
     })
 
-    // 計算每位繼承人的共同支出補償情況
-    // 對於每筆有指定預付者的支出：
-    //   - 預付者：支付了全額，但只需負擔 amount * 自己targetRatio，可向其他人追討差額
-    //     → 在差額計算中加入 amount * (1 - 自己targetRatio) 作為可收取的補償
-    //   - 其他繼承人：需向預付者補償 amount * 自己targetRatio
-    //     → 在差額計算中減去 amount * 自己targetRatio 作為應付的補償
-    // 對於沒有指定預付者的支出：已從可分配總淨值中扣除，不需要額外的個人調整
+    // 計算每位繼承人的共同支出補償差額調整（影響 difference 的 badge 顯示）
+    //
+    // 核心邏輯：
+    //   「可分配總淨值」已扣除所有共同費用（無論是否有預付者）。
+    //   若某費用有指定預付者，表示預付者先從自己口袋支出了全額費用，
+    //   其有效財務位置因此降低了 totalAmount，最終需從結算中收回。
+    //
+    //   ✅ 預付者：調整 = -totalAmount（差額下降 → 顯示「短領」→ 應收回費用）
+    //   ✅ 非預付者：調整 = 0（其義務已透過結算池隱性處理，
+    //              系統的溢領/短領差額會自然引導費用流向預付者）
+    //
+    //   驗證（預設資料）：
+    //     小明預付遺產稅 $1.5M → 調整 = -$1.5M → 差額 = 0 + (-1.5M) = -1.5M (短領 → 應收)
+    //     小華 → 調整 = 0 → 差額 = +$2M (溢領，結算時支付給小明+喪葬費)
+    //     小美 → 調整 = 0 → 差額 = 0 (平衡)
+    //     差額總和 = -1.5M + 2M + 0 = 0.5M = 喪葬費（唯一需從池中支付的費用）✓
     const heirExpenseAdjustments = computed(() => {
       const adjustments: Record<string, Decimal> = {}
       heirList.value.forEach((heir) => {
@@ -116,18 +125,11 @@ export const useInheritanceStore = defineStore(
         if (!payer) return
 
         const totalAmount = new Decimal(expense.amount)
-        const payerRatio = parseRatioStr(payer.targetShareStr)
-        // 預付者可收回金額 = 總支出 × (1 - 自己的份額比例)
-        const payerReimbursement = mul(totalAmount, sub(new Decimal(1), payerRatio))
-        adjustments[payer.id] = add(adjustments[payer.id], payerReimbursement)
-
-        // 其他繼承人需補償的金額 = 總支出 × 自己的份額比例
-        heirList.value.forEach((heir) => {
-          if (heir.id === expense.paidByHeirId) return
-          const heirRatio = parseRatioStr(heir.targetShareStr)
-          const heirShare = mul(totalAmount, heirRatio)
-          adjustments[heir.id] = sub(adjustments[heir.id], heirShare)
-        })
+        // 預付者從自己口袋支出了全額費用，其有效財務位置因此降低 totalAmount
+        // 在差額計算中減去全額，使預付者顯示為「短領」，最終可從結算中收回
+        adjustments[payer.id] = sub(adjustments[payer.id], totalAmount)
+        // 非預付者的費用義務（ownShare）已透過結算池隱性處理，
+        // 他們的溢領份額會流向預付者，不需在此額外調整差額
       })
 
       return adjustments
@@ -297,12 +299,15 @@ export const useInheritanceStore = defineStore(
       const idx = cashList.value.findIndex((c) => c.id === id)
       if (idx !== -1) {
         cashList.value[idx] = { id, name, amount }
+        cashList.value = [...cashList.value]
       }
     }
 
     const deleteCash = (id: string) => {
       cashList.value = cashList.value.filter((c) => c.id !== id)
-      delete allocations.value[id]
+      const newAllocations = { ...allocations.value }
+      delete newAllocations[id]
+      allocations.value = newAllocations
     }
 
     const addRealEstate = (name: string, value: number, mortgage: number, rate: number) => {
@@ -314,12 +319,15 @@ export const useInheritanceStore = defineStore(
       const idx = realEstateList.value.findIndex((r) => r.id === id)
       if (idx !== -1) {
         realEstateList.value[idx] = { id, name, value, mortgage, rate }
+        realEstateList.value = [...realEstateList.value]
       }
     }
 
     const deleteRealEstate = (id: string) => {
       realEstateList.value = realEstateList.value.filter((r) => r.id !== id)
-      delete allocations.value[id]
+      const newAllocations = { ...allocations.value }
+      delete newAllocations[id]
+      allocations.value = newAllocations
     }
 
     const addCommonExpense = (name: string, amount: number, paidByHeirId?: string) => {
@@ -331,6 +339,7 @@ export const useInheritanceStore = defineStore(
       const idx = commonExpenseList.value.findIndex((e) => e.id === id)
       if (idx !== -1) {
         commonExpenseList.value[idx] = { id, name, amount, paidByHeirId }
+        commonExpenseList.value = [...commonExpenseList.value]
       }
     }
 
@@ -347,29 +356,49 @@ export const useInheritanceStore = defineStore(
       const idx = heirList.value.findIndex((h) => h.id === id)
       if (idx !== -1) {
         heirList.value[idx] = { id, name, targetShareStr }
+        heirList.value = [...heirList.value]
       }
     }
 
     const deleteHeir = (id: string) => {
       heirList.value = heirList.value.filter((h) => h.id !== id)
-      // 清理分配給該繼承人的比例
-      Object.keys(allocations.value).forEach((itemId) => {
-        if (allocations.value[itemId]) {
-          delete allocations.value[itemId][id]
+      
+      // 1. 清理分配給該繼承人的比例，使用物件展開以觸發反應性
+      const newAllocations = { ...allocations.value }
+      Object.keys(newAllocations).forEach((itemId) => {
+        if (newAllocations[itemId]) {
+          const itemAlloc = { ...newAllocations[itemId] }
+          delete itemAlloc[id]
+          newAllocations[itemId] = itemAlloc
         }
+      })
+      allocations.value = newAllocations
+
+      // 2. 清理共同支出預付款設定中的繼承人 ID
+      commonExpenseList.value = commonExpenseList.value.map((expense) => {
+        if (expense.paidByHeirId === id) {
+          return { ...expense, paidByHeirId: '' }
+        }
+        return expense
       })
     }
 
     const updateAllocation = (itemId: string, heirId: string, ratioStr: string) => {
-      if (!allocations.value[itemId]) {
-        allocations.value[itemId] = {}
+      const newAllocations = { ...allocations.value }
+      if (!newAllocations[itemId]) {
+        newAllocations[itemId] = {}
       }
+      
+      const itemAlloc = { ...newAllocations[itemId] }
       const trimmed = ratioStr.trim()
       if (trimmed === '') {
-        delete allocations.value[itemId][heirId]
+        delete itemAlloc[heirId]
       } else {
-        allocations.value[itemId][heirId] = ratioStr
+        itemAlloc[heirId] = ratioStr
       }
+      
+      newAllocations[itemId] = itemAlloc
+      allocations.value = newAllocations
     }
 
     // 重設為初始範例資料
