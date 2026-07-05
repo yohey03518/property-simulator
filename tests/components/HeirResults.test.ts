@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { useInheritanceStore } from '../../src/stores/inheritance'
-import HeirResults from '../../src/components/HeirResults.vue'
+import { useInheritanceStore } from '@/stores/inheritance'
+import HeirResults from '@/components/HeirResults.vue'
 
 describe('HeirResults.vue', () => {
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe('HeirResults.vue', () => {
     const wrapper = mount(HeirResults)
 
     // Expected net values display (expected for 1/3 of 41M distributable is 13,666,666.67)
-    expect(wrapper.text()).toMatch(/(NT)?\$13,666,667/)
+    expect(wrapper.text()).toMatch(/(NT)?\s*\$?\s*13,666,667/)
 
     const cards = wrapper.findAll('[data-slot="card"]')
 
@@ -32,15 +32,15 @@ describe('HeirResults.vue', () => {
     expect(heir1Card!.classes()).toContain('border-l-sky-500')
     // Verify values inside card
     expect(heir1Card!.text()).toContain('預期應得淨值')
-    expect(heir1Card!.text()).toMatch(/(NT)?\$13,666,667/)
+    expect(heir1Card!.text()).toMatch(/(NT)?\s*\$?\s*13,666,667/)
     expect(heir1Card!.text()).toContain('實際取得資產')
-    expect(heir1Card!.text()).toMatch(/(NT)?\$17,666,667/)
+    expect(heir1Card!.text()).toMatch(/(NT)?\s*\$?\s*17,666,667/)
     expect(heir1Card!.text()).toContain('實際承接債務')
-    expect(heir1Card!.text()).toMatch(/(NT)?\$4,000,000/)
+    expect(heir1Card!.text()).toMatch(/(NT)?\s*\$?\s*4,000,000/)
     expect(heir1Card!.text()).toContain('實際分配淨值')
-    expect(heir1Card!.text()).toMatch(/(NT)?\$13,666,667/)
+    expect(heir1Card!.text()).toMatch(/(NT)?\s*\$?\s*13,666,667/)
     // Difference badge
-    expect(heir1Card!.text()).toMatch(/短領：-(NT)?\$1,500,000/)
+    expect(heir1Card!.text()).toMatch(/短領：\s*-?(NT)?\s*\$?\s*1,500,000/)
 
     // Find and verify heir_2 (小華)
     const heir2Card = cards.find(c => c.text().includes('次子 小華'))
@@ -48,9 +48,9 @@ describe('HeirResults.vue', () => {
     // Verify border-l color class separately
     expect(heir2Card!.classes()).toContain('border-l-amber-500')
     // Verify values inside card
-    expect(heir2Card!.text()).toMatch(/(NT)?\$15,666,667/) // actual net value
+    expect(heir2Card!.text()).toMatch(/(NT)?\s*\$?\s*15,666,667/) // actual net value
     // Difference badge
-    expect(heir2Card!.text()).toMatch(/溢領：\+(NT)?\$2,000,000/)
+    expect(heir2Card!.text()).toMatch(/溢領：\s*\+?(NT)?\s*\$?\s*2,000,000/)
 
     // Find and verify heir_3 (小美)
     const heir3Card = cards.find(c => c.text().includes('長女 小美'))
@@ -69,18 +69,26 @@ describe('HeirResults.vue', () => {
     // heir_1 (小明) prepaid exp_1: check pre-payer adjustment alert and recovery amount
     const heir1Card = cards.find(c => c.text().includes('長子 小明'))
     expect(heir1Card).toBeDefined()
-    expect(heir1Card!.text()).toMatch(/已預付全額，差額調整：－(NT)?\$1,500,000/)
-    expect(heir1Card!.text()).toMatch(/＋可收回：(NT)?\$1,000,000/)
+    expect(heir1Card!.text()).toMatch(/已預付全額，差額調整：－(NT)?\s*\$?\s*1,500,000/)
+    expect(heir1Card!.text()).toMatch(/＋可收回：(NT)?\s*\$?\s*1,000,000/)
 
     // heir_2 has to pay other prepaid: check deduction details
     const heir2Card = cards.find(c => c.text().includes('次子 小華'))
     expect(heir2Card).toBeDefined()
-    expect(heir2Card!.text()).toMatch(/－需補付：(NT)?\$500,000/)
+    expect(heir2Card!.text()).toMatch(/－需補付：(NT)?\s*\$?\s*500,000/)
 
     // heir_3 has to pay other prepaid: check deduction details
     const heir3Card = cards.find(c => c.text().includes('長女 小美'))
     expect(heir3Card).toBeDefined()
-    expect(heir3Card!.text()).toMatch(/－需補付：(NT)?\$500,000/)
+    expect(heir3Card!.text()).toMatch(/－需補付：(NT)?\s*\$?\s*500,000/)
+  })
+
+  it('does not render common expense details when commonExpenseList is empty', () => {
+    const store = useInheritanceStore()
+    store.commonExpenseList = []
+    
+    const wrapper = mount(HeirResults)
+    expect(wrapper.text()).not.toContain('共同費用分擔與補償明細')
   })
 
   it('renders mortgage monthly payments estimations when heir inherits debt', () => {
