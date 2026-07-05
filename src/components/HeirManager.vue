@@ -33,8 +33,19 @@ const saveHeir = () => {
   resetHeirForm()
 }
 
-// 實時驗證輸入比例字串
 const getParsedValue = (str: string) => {
+  const trimmed = str.trim()
+  if (!trimmed) return null
+
+  const noSpaces = trimmed.replace(/\s+/g, '')
+  const percentRegex = /^\d+(\.\d+)?%$/
+  const fractionRegex = /^\d+(\.\d+)?\/\d+(\.\d+)?$/
+  const decimalRegex = /^\d+(\.\d+)?$/
+
+  if (!percentRegex.test(noSpaces) && !fractionRegex.test(noSpaces) && !decimalRegex.test(noSpaces)) {
+    return null
+  }
+
   try {
     const val = parseRatioStr(str)
     if (val.isNaN() || val.isNegative()) return null
