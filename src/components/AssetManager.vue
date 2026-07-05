@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Trash2, Edit2, Check, X, Building2, Wallet, FileSpreadsheet } from 'lucide-vue-next'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Plus, Trash2, Edit2, Check, X, Building2, Wallet, FileSpreadsheet, User } from 'lucide-vue-next'
 
 const store = useInheritanceStore()
 
@@ -17,7 +18,7 @@ const formatCurrency = (val: number) => {
 // 狀態變數：用於新增/編輯表單
 const cashForm = ref({ id: '', name: '', amount: 0, show: false, editMode: false })
 const reForm = ref({ id: '', name: '', value: 0, mortgage: 0, rate: 2.1, show: false, editMode: false })
-const expForm = ref({ id: '', name: '', amount: 0, show: false, editMode: false })
+const expForm = ref({ id: '', name: '', amount: 0, paidByHeirId: '', show: false, editMode: false })
 
 // --- 現金操作 ---
 const resetCashForm = () => {
@@ -61,20 +62,21 @@ const saveRealEstate = () => {
 
 // --- 共同支出操作 ---
 const resetExpForm = () => {
-  expForm.value = { id: '', name: '', amount: 0, show: false, editMode: false }
+  expForm.value = { id: '', name: '', amount: 0, paidByHeirId: '', show: false, editMode: false }
 }
 const handleAddExpClick = () => {
-  expForm.value = { id: '', name: '', amount: 0, show: true, editMode: false }
+  expForm.value = { id: '', name: '', amount: 0, paidByHeirId: '', show: true, editMode: false }
 }
 const handleEditExpClick = (item: any) => {
-  expForm.value = { id: item.id, name: item.name, amount: item.amount, show: true, editMode: true }
+  expForm.value = { id: item.id, name: item.name, amount: item.amount, paidByHeirId: item.paidByHeirId || '', show: true, editMode: true }
 }
 const saveExpense = () => {
   if (!expForm.value.name.trim() || expForm.value.amount < 0) return
+  const paidById = expForm.value.paidByHeirId || undefined
   if (expForm.value.editMode) {
-    store.editCommonExpense(expForm.value.id, expForm.value.name.trim(), expForm.value.amount)
+    store.editCommonExpense(expForm.value.id, expForm.value.name.trim(), expForm.value.amount, paidById)
   } else {
-    store.addCommonExpense(expForm.value.name.trim(), expForm.value.amount)
+    store.addCommonExpense(expForm.value.name.trim(), expForm.value.amount, paidById)
   }
   resetExpForm()
 }
@@ -249,6 +251,24 @@ const saveExpense = () => {
               <Input v-model.number="expForm.amount" type="number" min="0" class="h-8 text-xs mt-1" />
             </div>
           </div>
+          <!-- 預先支付者選擇 -->
+          <div>
+            <Label class="text-xs flex items-center gap-1">
+              <User class="h-3 w-3" /> 預先支付者
+            </Label>
+            <p class="text-2xs text-muted-foreground mt-0.5 mb-1.5">(選項) 若某繼承人已預先支付此項費用，可在此指定。該人後續將收回其他人應分擔的費用。</p>
+            <Select v-model="expForm.paidByHeirId">
+              <SelectTrigger class="h-8 text-xs">
+                <SelectValue placeholder="未指定（共同從總淨值扣除）" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value=""><span class="text-muted-foreground">未指定（共同按份從總淨值扣除）</span></SelectItem>
+                <SelectItem v-for="heir in store.heirList" :key="heir.id" :value="heir.id">
+                  {{ heir.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div class="flex justify-end gap-2">
             <Button size="sm" variant="ghost" class="h-8 text-xs" @click="resetExpForm">
               <X class="h-4 w-4 mr-1" /> 取消
@@ -266,9 +286,16 @@ const saveExpense = () => {
         <div v-else class="divide-y border rounded-lg overflow-hidden">
           <div v-for="item in store.commonExpenseList" :key="item.id" class="p-3 flex items-center justify-between gap-3 text-xs bg-card">
             <div class="min-w-0 flex-1">
-              <div class="font-medium text-slate-800 dark:text-slate-100 truncate">{{ item.name }}</div>
-              <div class="text-xs text-orange-600 dark:text-orange-400 mt-0.5">
-                金額：{{ formatCurrency(item.amount) }}
+              <div class="font-medium text-slate-800 dark:text-slate-100 truncate">「{{ item.name }}」</div>
+              <div class="flex flex-wrap gap-x-3 gap-y-1 mt-0.5">
+                <span class="text-orange-600 dark:text-orange-400">金額：{{ formatCurrency(item.amount) }}</span>
+                <span v-if="item.paidByHeirId" class="inline-flex items-center gap-0.5 text-2xs font-medium px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">
+                  <User class="h-2.5 w-2.5" />
+                  預付：{{ store.heirList.find(h => h.id === item.paidByHeirId)?.name ?? '不明' }}
+                </span>
+                <span v-else class="inline-flex items-center gap-0.5 text-2xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  共同從總淨值扣除
+                </span>
               </div>
             </div>
             <div class="flex-shrink-0 flex items-center gap-1">

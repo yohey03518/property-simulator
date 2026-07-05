@@ -3,7 +3,7 @@ import { useInheritanceStore } from '@/stores/inheritance'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { calculateMortgage } from '@/utils/mortgage'
 import { formatRatioAsPercent } from '@/utils/fraction'
-import { Coins, Landmark } from 'lucide-vue-next'
+import { Coins, Landmark, Receipt, ArrowDownLeft, ArrowUpRight } from 'lucide-vue-next'
 import { Decimal } from 'decimal.js'
 
 const store = useInheritanceStore()
@@ -92,6 +92,55 @@ const formatMonthlyPayment = (val: any) => {
               <div class="text-sm font-bold text-primary mt-0.5">
                 {{ formatCurrency(heir.actualNetValue) }}
               </div>
+            </div>
+          </div>
+
+          <!-- 共同費用補償明細 -->
+          <div v-if="store.commonExpenseList.length > 0" class="space-y-1.5">
+            <div class="flex items-center gap-1.5">
+              <Receipt class="h-4 w-4 text-violet-500" />
+              <h4 class="text-xs font-bold text-violet-600 dark:text-violet-400">共同費用分擔與補償明細</h4>
+            </div>
+            <div class="divide-y border rounded-lg overflow-hidden text-xs">
+              <div v-for="detail in heir.expenseDetails" :key="detail.expenseId" class="p-2 flex justify-between items-center bg-card gap-2">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <!-- 預付者標記 -->
+                  <span
+                    v-if="store.commonExpenseList.find(e => e.id === detail.expenseId)?.paidByHeirId"
+                    class="flex-shrink-0 inline-flex items-center gap-0.5 text-2xs font-semibold px-1 py-0.5 rounded"
+                    :class="detail.isPayer
+                      ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400'
+                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'"
+                  >
+                    <ArrowDownLeft v-if="detail.isPayer" class="h-2.5 w-2.5" />
+                    <ArrowUpRight v-else class="h-2.5 w-2.5" />
+                    {{ detail.isPayer ? '預付' : '應補' }}
+                  </span>
+                  <span v-else class="flex-shrink-0 text-2xs px-1 py-0.5 rounded bg-slate-100 text-slate-400 dark:bg-slate-800">共同扣</span>
+                  <span class="text-slate-600 dark:text-slate-300 truncate">{{ detail.name }}</span>
+                </div>
+                <div class="flex-shrink-0 text-right">
+                  <div class="text-slate-600 dark:text-slate-400">自擔份額：{{ formatCurrency(detail.amount) }}</div>
+                  <div
+                    v-if="!detail.adjustment.isZero()"
+                    class="font-semibold"
+                    :class="detail.adjustment.gt(0) ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+                  >
+                    {{ detail.adjustment.gt(0) ? '＋可收回：' : '－需補付：' }}{{ formatCurrency(detail.adjustment.abs()) }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- 補償差額小計 -->
+            <div v-if="!heir.expenseAdjustment.isZero()" class="flex justify-end">
+              <span
+                class="text-xs font-bold px-2 py-0.5 rounded"
+                :class="heir.expenseAdjustment.gt(0)
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'
+                  : 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400'"
+              >
+                {{ heir.expenseAdjustment.gt(0) ? '共同費用補償小計：＋' : '共同費用應付小計：－' }}{{ formatCurrency(heir.expenseAdjustment.abs()) }}
+              </span>
             </div>
           </div>
 

@@ -22,6 +22,7 @@ export interface CommonExpenseItem {
   id: string
   name: string
   amount: number
+  paidByHeirId?: string // 預先支付者的繼承人 ID，空字串或 undefined 表示由所有人共同按份支付（從總淨值扣除）
 }
 
 export interface HeirItem {
@@ -48,8 +49,8 @@ export const useInheritanceStore = defineStore(
     ])
 
     const commonExpenseList = ref<CommonExpenseItem[]>([
-      { id: 'exp_1', name: '預估遺產稅', amount: 1500000 },
-      { id: 'exp_2', name: '喪葬與相關儀式費用', amount: 500000 },
+      { id: 'exp_1', name: '預估遺產稅', amount: 1500000, paidByHeirId: 'heir_1' },
+      { id: 'exp_2', name: '喪葬與相關儀式費用', amount: 500000, paidByHeirId: '' },
     ])
 
     const heirList = ref<HeirItem[]>([
@@ -91,8 +92,81 @@ export const useInheritanceStore = defineStore(
     })
 
     // 可分配總淨值 = 總資產價值 - 總負債價值 - 總共同支出
+    // 注意：無論是否有預付者，共同支出都先從總淨值中扣除，再透過補償差額還給預付者
     const netDistributableValue = computed(() => {
       return sub(sub(totalAssets.value, totalLiabilities.value), totalCommonExpenses.value)
+    })
+
+    // 計算每位繼承人的共同支出補償情況
+    // 對於每筆有指定預付者的支出：
+    //   - 預付者：支付了全額，但只需負擔 amount * 自己targetRatio，可向其他人追討差額
+    //     → 在差額計算中加入 amount * (1 - 自己targetRatio) 作為可收取的補償
+    //   - 其他繼承人：需向預付者補償 amount * 自己targetRatio
+    //     → 在差額計算中減去 amount * 自己targetRatio 作為應付的補償
+    // 對於沒有指定預付者的支出：已從可分配總淨值中扣除，不需要額外的個人調整
+    const heirExpenseAdjustments = computed(() => {
+      const adjustments: Record<string, Decimal> = {}
+      heirList.value.forEach((heir) => {
+        adjustments[heir.id] = new Decimal(0)
+      })
+
+      commonExpenseList.value.forEach((expense) => {
+        if (!expense.paidByHeirId) return // 無預付者，已從總淨值扣除，不需個人調整
+        const payer = heirList.value.find((h) => h.id === expense.paidByHeirId)
+        if (!payer) return
+
+        const totalAmount = new Decimal(expense.amount)
+        const payerRatio = parseRatioStr(payer.targetShareStr)
+        // 預付者可收回金額 = 總支出 × (1 - 自己的份額比例)
+        const payerReimbursement = mul(totalAmount, sub(new Decimal(1), payerRatio))
+        adjustments[payer.id] = add(adjustments[payer.id], payerReimbursement)
+
+        // 其他繼承人需補償的金額 = 總支出 × 自己的份額比例
+        heirList.value.forEach((heir) => {
+          if (heir.id === expense.paidByHeirId) return
+          const heirRatio = parseRatioStr(heir.targetShareStr)
+          const heirShare = mul(totalAmount, heirRatio)
+          adjustments[heir.id] = sub(adjustments[heir.id], heirShare)
+        })
+      })
+
+      return adjustments
+    })
+
+    // 計算每位繼承人的逐項共同支出明細（用於顯示）
+    const heirExpenseDetails = computed(() => {
+      const details: Record<string, Array<{ expenseId: string; name: string; amount: Decimal; isPayer: boolean; adjustment: Decimal }>> = {}
+      heirList.value.forEach((heir) => {
+        details[heir.id] = []
+      })
+
+      commonExpenseList.value.forEach((expense) => {
+        const totalAmount = new Decimal(expense.amount)
+        heirList.value.forEach((heir) => {
+          const heirRatio = parseRatioStr(heir.targetShareStr)
+          const ownShare = mul(totalAmount, heirRatio)
+          const isPayer = expense.paidByHeirId === heir.id
+          let adjustment = new Decimal(0)
+          if (expense.paidByHeirId) {
+            if (isPayer) {
+              // 預付者：可收回其他人的份額
+              adjustment = mul(totalAmount, sub(new Decimal(1), heirRatio))
+            } else {
+              // 其他人：需補償給預付者
+              adjustment = ownShare.negated()
+            }
+          }
+          details[heir.id].push({
+            expenseId: expense.id,
+            name: expense.name,
+            amount: ownShare,
+            isPayer,
+            adjustment,
+          })
+        })
+      })
+
+      return details
     })
 
     // 單項資產分配進度與防呆
@@ -181,8 +255,13 @@ export const useInheritanceStore = defineStore(
         // 繼承人實際淨值 = 實際取得資產 - 實際承接債務
         const actualNetValue = sub(actualAssets, actualLiabilities)
 
-        // 分配差額 = 實際淨值 - 預期淨值
-        const difference = sub(actualNetValue, expectedNetValue)
+        // 共同支出預付補償調整額
+        // 正值：預付者可收回的金額（增加實際淨值）
+        // 負值：需付給預付者的金額（減少實際淨值）
+        const expenseAdjustment = heirExpenseAdjustments.value[heir.id] || new Decimal(0)
+
+        // 分配差額 = 實際淨值 + 費用補償調整 - 預期淨值
+        const difference = sub(add(actualNetValue, expenseAdjustment), expectedNetValue)
 
         return {
           ...heir,
@@ -191,8 +270,10 @@ export const useInheritanceStore = defineStore(
           actualAssets,
           actualLiabilities,
           actualNetValue,
+          expenseAdjustment,
           difference,
           inheritedProperties,
+          expenseDetails: heirExpenseDetails.value[heir.id] || [],
         }
       })
     })
@@ -241,15 +322,15 @@ export const useInheritanceStore = defineStore(
       delete allocations.value[id]
     }
 
-    const addCommonExpense = (name: string, amount: number) => {
+    const addCommonExpense = (name: string, amount: number, paidByHeirId?: string) => {
       const id = 'exp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7)
-      commonExpenseList.value.push({ id, name, amount })
+      commonExpenseList.value.push({ id, name, amount, paidByHeirId })
     }
 
-    const editCommonExpense = (id: string, name: string, amount: number) => {
+    const editCommonExpense = (id: string, name: string, amount: number, paidByHeirId?: string) => {
       const idx = commonExpenseList.value.findIndex((e) => e.id === id)
       if (idx !== -1) {
-        commonExpenseList.value[idx] = { id, name, amount }
+        commonExpenseList.value[idx] = { id, name, amount, paidByHeirId }
       }
     }
 
@@ -302,8 +383,8 @@ export const useInheritanceStore = defineStore(
         { id: 're_2', name: '新北板橋區公寓', value: 15000000, mortgage: 2000000, rate: 2.25 },
       ]
       commonExpenseList.value = [
-        { id: 'exp_1', name: '預估遺產稅', amount: 1500000 },
-        { id: 'exp_2', name: '喪葬與相關儀式費用', amount: 500000 },
+        { id: 'exp_1', name: '預估遺產稅', amount: 1500000, paidByHeirId: 'heir_1' },
+        { id: 'exp_2', name: '喪葬與相關儀式費用', amount: 500000, paidByHeirId: '' },
       ]
       heirList.value = [
         { id: 'heir_1', name: '長子 小明', targetShareStr: '1/3' },
@@ -331,6 +412,8 @@ export const useInheritanceStore = defineStore(
       totalLiabilities,
       totalCommonExpenses,
       netDistributableValue,
+      heirExpenseAdjustments,
+      heirExpenseDetails,
       itemAllocationStatus,
       heirsResults,
       totalUndistributedNetValue,
